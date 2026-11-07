@@ -1,0 +1,69 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: docker-ia-nginx
+    ports:
+      - "8205:80"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - php
+    restart: unless-stopped
+
+  php:
+    image: php:8.3-fpm-alpine
+    container_name: docker-ia-php
+    volumes:
+      - ./site:/var/www/html:ro
+    restart: unless-stopped
+
+  python:
+    image: python:3.12-slim
+    container_name: docker-ia-python
+    working_dir: /app
+    volumes:
+      - ./apps/python:/app:ro
+    command: ["python", "-m", "http.server", "8000", "--bind", "0.0.0.0"]
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  node:
+    image: node:22-alpine
+    container_name: docker-ia-node
+    working_dir: /app
+    volumes:
+      - ./apps/node:/app:ro
+    command: ["sh", "-c", "if [ -f package.json ]; then npm start; else node -e \"require('http').createServer((req,res)=>res.end('Node demo')).listen(3000,'0.0.0.0')\"; fi"]
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  java:
+    image: eclipse-temurin:21-jre
+    container_name: docker-ia-java
+    working_dir: /app
+    volumes:
+      - ./apps/java:/app:ro
+    entrypoint: ["sh", "-c", "if [ -f app.jar ]; then java -jar app.jar; else sleep infinity; fi"]
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  db:
+    image: mariadb:11
+    container_name: docker-ia-db
+    environment:
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-web}
+      MARIADB_USER: ${MARIADB_USER:-web}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?Define MARIADB_PASSWORD dans .env}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Define MARIADB_ROOT_PASSWORD dans .env}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - default
+    restart: unless-stopped
+
+volumes:
+  mariadb_data:
